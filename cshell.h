@@ -10,7 +10,8 @@ written by collin harmon
 int cshell(int argc, char *argv[]);
 
 int parse(char *argv1[], int *rdI, int *rdO, int *arg, int *stde, int *amp, int *script, int *hist, int *pip, char histaux[], char histfiles[]);
+void dup_out(int *rdOut, int *stderror);
+void dup_in(int *rdIn);
 
-int execute(char *argv1[], int *arg, int *amp);
 void sighandler(int signum);
 int specialparse(char *argv1[], int *rdI, int *rdO, int *arg, int *stde, int *amp, int number, int *pip, char histaux[], char histfiles[]);
