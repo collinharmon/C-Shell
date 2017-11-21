@@ -22,319 +22,181 @@ metaFlag codes:
 int pipeFlag = 0;
 
 int main(int argc, char *argv[]){
-        static char histaux[MAXHISTORY], histfiles[((7+(256*2))*9)];        //[0] == metaflag 0 or null,[1] == metaflag 1,2,4,5 or null [2] == & or null, [3] == pipe or no pipe.. max of 2 words follow, infile or outfile. plus two (and additional 1 for null) for the index of where (if theres a pipe) the second program is.
-                char *argv1[MAXITEM+1];             //added a 1 so that there is room for a null terminator in case user uses max args, argv2 is
-        int rdOut = 0, stderror = 0, rdIn = 0, argc1 = 0, parseCode = 0, amps = 0, prompt = 0, arg_fd = 0, scriptFlag = 0, history = 0, piper = 0;    //rdIn/Out are file descriptors for redirect. stderror is a flag for stderror redirect.
-        int *rdO = &rdOut, *rdI = &rdIn, *arg = &argc1, *stde = &stderror, *amp = &amps, *script = &scriptFlag, *hist = &history, *pip = &piper;            //argc1 counts amount of args, parseCode is assigned numberic code from the parse function's
-        signal(SIGTERM, sighandler);                                        //return value. amps is a flag for '&'. arg_fd is file descriptor for the file passed
-        int percent = 1;
-        if(argc > 1){
-            scriptFlag = 1;                                
-            if (-1 == (arg_fd = open(argv[1], O_RDONLY))){                //redirect input for prog if its fed an arg
-                perror("Failed to open file passed in the command line.");
-                parseCode = -1;
-            }
-            if(-1 == (dup2(arg_fd, 0))){
-                perror("Failed to dup2 argv[1].");
-                parseCode = -1;
-            }
+        //static char histaux[MAXHISTORY], histfiles[((7+(256*2))*9)];        //[0] == metaflag 0 or null,[1] == metaflag 1,2,4,5 or null [2] == & or null, [3] == pipe or no pipe.. max of 2 words follow, infile or outfile. plus two (and additional 1 for null) for the index of where (if theres a pipe) the second program is.
+    char histaux[MAXHISTORY], histfiles[((7+(256*2))*9)];        //[0] == metaflag 0 or null,[1] == metaflag 1,2,4,5 or null [2] == & or null, [3] == pipe or no pipe.. max of 2 words follow, infile or outfile. plus two (and additional 1 for null) for the index of where (if theres a pipe) the second program is.
+    char *argv1[MAXITEM+1];             //added a 1 so that there is room for a null terminator in case user uses max args, argv2 is
+    int rdOut = 0, stderror = 0, rdIn = 0, argc1 = 0, parseCode = 0, amps = 0, prompt = 0, arg_fd = 0, scriptFlag = 0, history = 0, piper = 0;    //rdIn/Out are file descriptors for redirect. stderror is a flag for stderror redirect.
+    int *rdO = &rdOut, *rdI = &rdIn, *arg = &argc1, *stde = &stderror, *amp = &amps, *script = &scriptFlag, *hist = &history, *pip = &piper;            //argc1 counts amount of args, parseCode is assigned numberic code from the parse function's
+    signal(SIGTERM, sighandler);                                        //return value. amps is a flag for '&'. arg_fd is file descriptor for the file passed
+    int percent = 1;
+    if(argc > 1){
+        scriptFlag = 1;
+        if (-1 == (arg_fd = open(argv[1], O_RDONLY))){                //redirect input for prog if its fed an arg
+            perror("Failed to open file passed in the command line.");
+            parseCode = -1;
         }
-                while(parseCode>-1){
-                        if(!(scriptFlag)){                //DONT PRINT PROMPTS IF STDIN IS REDIRECTED? I THINK
-                if(parseCode == 0)                    //if newline dont increment
-                    printf("%%%d%% ", percent);        
-                else
-                    printf("%%%d%% ", ++percent);
-                
-            }
-            parseCode = parse(argv1, rdI, rdO, arg, stde, amp, script, hist, pip, histaux, histfiles);    //call separate function, parse. pass pointers to the new argv1 array, rdI & rdO for out/in redirect, arg for arg count, stde (stderror ewsirect flag, and amp which is the Ampersand flag)
-                        if(parseCode == -1){                    //pCode == -1 means logout.. kill the children (signal handler for parent above)
-                killpg(getpid(), SIGTERM);
-                if(!(scriptFlag)) printf("p2 terminated.\n");
-                exit(0);
-            }
-                        else if(parseCode > 0){        //pCode == 1 means successful parsing, and is now ready for fork n' execute. pCode == 2 means user enter "!!". So fork n exe
-                history++;
-                if(parseCode >= 10){
-                    if(parseCode == 10 || (parseCode-10) >= history){    //the value of parsecode minus 10 corresponds with the command's number (e.g. 15-10 == command %5%)
-                        printf("Event not found.\n");            //modeling off of tcsh error code
-                        parseCode = 0;                    //dont increment percent if user tries to use the history command on the current command (modeling off of tcsh)
-                        history--;
-                        continue;
-                    }
-                    else{
-                        parseCode = specialparse(argv1, rdI, rdO, arg, stde, amp, parseCode-11, pip, histaux, histfiles); 
-                        if(parseCode == 3)
-                            continue;
-                    }
+        if(-1 == (dup2(arg_fd, 0))){
+            perror("Failed to dup2 argv[1].");
+            parseCode = -1;
+        }
+    }
+    while(parseCode>-1){
+        if(!(scriptFlag)){                //DONT PRINT PROMPTS IF STDIN IS REDIRECTED? I THINK
+            if(parseCode == 0)                    //if newline dont increment
+                printf("%%%d%% ", percent);
+            else
+                printf("%%%d%% ", ++percent);
+        }
+        parseCode = parse(argv1, rdI, rdO, arg, stde, amp, script, hist, pip, histaux, histfiles);    //call separate function, parse. pass pointers to the new argv1 array, rdI & rdO for out/in redirect, arg for arg count, stde (stderror ewsirect flag, and amp which is the Ampersand flag)
+        if(parseCode == -1){                    //pCode == -1 means logout.. kill the children (signal handler for parent above)
+            killpg(getpid(), SIGTERM);
+            if(!(scriptFlag)) printf("shell terminated.\n");
+            exit(0);
+        }
+        else if(parseCode > 0){        //pCode == 1 means successful parsing, and is now ready for fork n' execute. pCode == 2 means user enter "!!". So fork n exe
+            history++;
+            if(parseCode >= 10){
+                if(parseCode == 10 || (parseCode-10) >= history){    //the value of parsecode minus 10 corresponds with the command's number (e.g. 15-10 == command %5%)
+                    printf("Event not found.\n");            //modeling off of tcsh error code
+                    parseCode = 0;                    //dont increment percent if user tries to use the history command on the current command (modeling off of tcsh)
+                    history--;
+                    continue;
                 }
-                if(strcmp(argv1[0], "cd") == 0 && strlen(argv1[0]) == 2){    //built in cd -- checks for valid aarg count next line
-                    if(argc1 > 2)
-                        perror("Two many arguments for cd");
-                    else if(argc1 == 1){
-                        if((chdir(getenv("HOME"))) == -1)         //no args so cd to home dir by using getenv
+                else{
+                    parseCode = specialparse(argv1, rdI, rdO, arg, stde, amp, parseCode-11, pip, histaux, histfiles);
+                    if(parseCode == 3)
+                        continue;
+                }
+            }
+            if(strcmp(argv1[0], "cd") == 0 && strlen(argv1[0]) == 2){    //built in cd -- checks for valid aarg count next line
+                if(argc1 > 2)
+                    perror("Too many arguments for cd");
+                else if(argc1 == 1){
+                    if((chdir(getenv("HOME"))) == -1)         //no args so cd to home dir by using getenv
+                        perror("Failed to change directory");
+                }
+                else {
+                    if(strcmp(argv1[1], "$HOME") == 0 && strlen(argv[1]) == 5){    //this is same behavior as if user only entered "cd"
+                        if((chdir(getenv("HOME"))) == -1)
                             perror("Failed to change directory");
                     }
-                    else {
-                        if(strcmp(argv1[1], "$HOME") == 0 && strlen(argv[1]) == 5){    //this is same behavior as if user only entered "cd"
-                            if((chdir(getenv("HOME"))) == -1) 
-                                perror("Failed to change directory");
+                    else if((chdir(argv1[1])) == -1)                 //chdir to argv[1] send error if not valid
+                        perror("Failed to change directory");
+                }
+            }
+            //else if(!amps){                                    //if NO '&' at the end then do this block
+            else{                                    //if NO '&' at the end then do this block
+                int kidpid, grandpid, status;
+                int fildes[2];
+                fflush(stdout);
+                if(-1 == (kidpid = fork())){
+                    perror("Fork Failed");
+                    exit(1);
+                }
+                else if(kidpid == 0){                            //if child, execute this block -- handle in/out redirect (dup2) if their fd's aren't NULL
+                    if(piper != 0){
+                        if(-1 == (pipe(fildes))){
+                            perror("Pipe failed on input fildes.\n");
+                            exit(1);
                         }
-                        else if((chdir(argv1[1])) == -1)                 //chdir to argv[1] send error if not valid
-                            perror("Failed to change directory");
-                    }    
-                }    
-                else if(!amps){                                    //if NO '&' at the end then do this block
-                    int kidpid, grandpid, status;
-                    int fildes[2];
-                    fflush(stdout);
-                    if(-1 == (kidpid = fork())){
-                        perror("Fork Failed");
-                        exit(1);
-                    }
-                    else if(kidpid == 0){                            //if child, execute this block -- handle in/out redirect (dup2) if their fd's aren't NULL
-                        if(piper != 0){
-                            if(-1 == (pipe(fildes))){
-                                perror("Pipe failed on input fildes.\n");
+                        if(-1 == (grandpid = fork())){
+                            perror("Fork Failed");
+                            exit(1);
+                        }
+                        else if(grandpid == 0){
+                            if(rdIn)
+                                dup_in(&rdIn);
+                            if(dup2(fildes[1], 1) == -1){
+                                perror("dup2 failed on output file for pipe.\n");
                                 exit(1);
                             }
-                            if(-1 == (grandpid = fork())){
-                                perror("Fork Failed");
+                            if(-1 == close(fildes[0])){
+                                perror("close failed for pipe.\n");
                                 exit(1);
                             }
-                            else if(grandpid == 0){
-                                if(rdIn){
-                                    if(dup2(rdIn, 0) == -1){                //(stdin == 0)
-                                        perror("dup2 failed on input file.\n");
-                                        exit(1);
-                                    }
-                                    if(-1 == close(rdIn)){
-                                        perror("close failed on input redirect file.\n");
-                                        exit(1);
-                                    }
-                                }
-                                if(dup2(fildes[1], 1) == -1){
-                                    perror("dup2 failed on output file for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[0])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[1])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(execvp(*argv1, argv1) < 0){                    //ready for execution, exit if it failed
-                                    perror("Execvp Failed");
-                                    exit(1);
-                                }
-                            }
-                            else{                            //parent of grandchild
-                                if(rdOut){
-                                    if(dup2(rdOut, 1) == -1){
-                                        perror("dup2 failed on output file.\n");
-                                        exit(1);
-                                    }
-                                    if(!(stderror)){
-                                        if(-1 == close(rdOut)){
-                                            perror("close failed on output redirect file.\n");
-                                            exit(1);
-                                        }
-                                    }
-                                }
-                                if(stderror){                        //if flag set then dup2 (stderr == 2) as well
-                                    if(dup2(rdOut, 2) == -1){
-                                        perror("dup2 failed on output file (stderr).\n");
-                                        exit(1);
-                                    }
-                                    if(-1 == close(rdOut)){
-                                        perror("close failed on output redirect file.\n");
-                                        exit(1);
-                                    }
-                                }            // forgot to close these
-                                if(dup2(fildes[0], 0) == -1){
-                                    perror("dup2 failed on input file for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[0])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[1])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(execvp(*(argv1+piper), argv1+piper) < 0){                    //ready for execution, exit if it failed
-                                    perror("Execvp Failed");
-                                    exit(1);    
-                                }
-                            }
-                        }
-                        else{
-                            if(rdIn){
-                                if(dup2(rdIn, 0) == -1){                //(stdin == 0)
-                                    perror("dup2 failed on input file.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(rdIn)){                    //close fd -- don't need anymore
-                                    perror("close failed on input redirect file.\n");
-                                    exit(1);
-                                }
-                            }
-                            if(rdOut){                            //repeat for rdOut (std out == 1)
-                                if(dup2(rdOut, 1) == -1){
-                                    perror("dup2 failed on output file.\n");
-                                    exit(1);
-                                }
-                                if(stderror){                        //if flag set then dup2 (stderr == 2) as well
-                                    if(dup2(rdOut, 2) == -1){
-                                        perror("dup2 failed on output file (stderr).\n");
-                                        exit(1);
-                                    }
-                                }
-                                if(-1 == close(rdOut)){
-                                    perror("close failed on output redirect file.\n");
-                                    exit(1);
-                                }
+                            if(-1 == close(fildes[1])){
+                                perror("close failed for pipe.\n");
+                                exit(1);
                             }
                             if(execvp(*argv1, argv1) < 0){                    //ready for execution, exit if it failed
                                 perror("Execvp Failed");
                                 exit(1);
                             }
                         }
+                        else{                            //parent of grandchild
+                            if(rdOut)
+                                dup_out(&rdOut, &stderror);
+                            //dup_in(&fildes[0]);
+                            if(dup2(fildes[0], 0) == -1){
+                                perror("dup2 failed on input file for pipe.\n");
+                                exit(1);
+                            }
+                            if(-1 == close(fildes[0])){
+                                perror("close failed for pipe.\n");
+                                exit(1);
+                            }
+                            if(-1 == close(fildes[1])){
+                                perror("close failed for pipe.\n");
+                                exit(1);
+                            }
+                            if(execvp(*(argv1+piper), argv1+piper) < 0){                    //ready for execution, exit if it failed
+                                perror("Execvp Failed");
+                                exit(1);
+                            }
+                        }
                     }
-                    else {
-                        while (wait(&status) != kidpid);                //if parent, wait for child to finish
+                    else{
+                        if(rdIn)
+                            dup_in(&rdIn);
+                        if(rdOut)                            //repeat for rdOut (std out == 1)
+                            dup_out(&rdOut, &stderror);
+                        if(execvp(*argv1, argv1) < 0){                    //ready for execution, exit if it failed
+                            perror("Execvp Failed");
+                            exit(1);
+                        }
                     }
-                    //else while (waitpid(-1, &status, 0));                    //if parent, wait for child to finish
                 }
-                else{                        //amp flag is not zero (null) so background the child
-                    int kidpid, grandpid;
-                    int fildes[2];
-                    fflush(stdout);
-                    if(-1 == (kidpid = fork())){
-                        perror("Fork Failed");
-                        exit(1);
-                    }
-                    else if(kidpid == 0){            //if kid handle in/out (and stderr if necessary) redirect with dup2, then close fds
-                        if(piper != 0){
-                            if(-1 == (pipe(fildes))){
-                                perror("Pipe failed on input fildes.\n");
-                                exit(1);
-                            }
-                            if(-1 == (grandpid = fork())){
-                                perror("Fork Failed");
-                                exit(1);
-                            }
-                            else if(grandpid == 0){
-                                if(rdIn){
-                                    if(dup2(rdIn, 0) == -1){                //(stdin == 0)
-                                        perror("dup2 failed on input file.\n");
-                                        exit(1);
-                                    }
-                                    if(-1 == close(rdIn)){
-                                        perror("close failed on input redirect file.\n");
-                                        exit(1);
-                                    }
-                                }
-                                if(dup2(fildes[1], 1) == -1){
-                                    perror("dup2 failed on output file for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[0])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[1])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(execvp(*argv1, argv1) < 0){                    //ready for execution, exit if it failed
-                                    perror("Execvp Failed");
-                                    exit(1);
-                                }
-                            }
-                            else{                            //parent of grandchild
-                                if(rdOut){
-                                    if(dup2(rdOut, 1) == -1){
-                                        perror("dup2 failed on output file.\n");
-                                        exit(1);
-                                    }
-                                }
-                                if(stderror){                        //if flag set then dup2 (stderr == 2) as well
-                                    if(dup2(rdOut, 2) == -1){
-                                        perror("dup2 failed on output file (stderr).\n");
-                                        exit(1);
-                                    }
-                                }            // forgot to close these
-                                if(-1 == close(rdOut)){
-                                        perror("close failed on output redirect file.\n");
-                                        exit(1);
-                                }
-                                if(dup2(fildes[0], 0) == -1){
-                                    perror("dup2 failed on input file for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[0])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(fildes[1])){
-                                    perror("close failed for pipe.\n");
-                                    exit(1);
-                                }
-                                if(execvp(*(argv1+piper), argv1+piper) < 0){                    //ready for execution, exit if it failed
-                                    perror("Execvp Failed");
-                                    exit(1);    
-                                }
-                            }
-                        }
-                        else{
-                            if(rdIn){
-                                if(dup2(rdIn, 0) == -1){
-                                    perror("dup2 failed on input file.\n");
-                                    exit(1);
-                                }
-                                if(-1 == close(rdIn)){
-                                    perror("close failed on input redirect file.\n");
-                                    exit(1);
-                                }
-                            }
-                            if(rdOut){
-                                if(dup2(rdOut, 1) == -1){
-                                    perror("dup2 failed on output file.\n");
-                                    exit(1);
-                                }
-                                if(stderror){
-                                    if(dup2(rdOut, 2) == -1){
-                                        perror("dup2 failed on output file (stderr).\n");
-                                        exit(1);
-                                    }
-                                }
-                                if(-1 == close(rdOut)){
-                                    perror("close failed on output redirect file.\n");
-                                    exit(1);
-                                }
-                            }
-                            if(execvp(*argv1, argv1) < 0){
-                                perror("Exec Failed");
-                                exit(1);
-                            }
-                        }
-                    }
+                else {
+                    if(!amps) while (wait(&status) != kidpid);                //if parent, wait for child to finish
                     else printf("%s [%d]\n", *argv1, kidpid);        //since child is backgrounded parent doesnt wait and instead prints child's pid and prog name
                 }
-                        }
-                        else if(parseCode < -2){             //parseCode < -2 means that there was in error
-                if (parseCode == -3) parseCode = 3;
-                else parseCode = 0;            //else parseCode == -4 which is a invalid progname error, and we dont have to worry about prompt reissuing twice (so dont set to 3)
-                history++;
             }
-            
-                }
+        }
+        else if(parseCode < -2){             //parseCode < -2 means that there was in error
+            if (parseCode == -3) parseCode = 3;
+            else parseCode = 0;            //else parseCode == -4 which is a invalid progname error, and we dont have to worry about prompt reissuing twice (so dont set to 3)
+            history++;
+        }
+
+    }
+}
+void dup_out(int *rdOut, int *stderror){
+    if(dup2(*rdOut, 1) == -1){
+        perror("dup2 failed on output file.\n");
+        exit(1);
+    }
+    if(*stderror){                        //if flag set then dup2 (stderr == 2) as well
+        if(dup2(*rdOut, 2) == -1){
+            perror("dup2 failed on output file (stderr).\n");
+            exit(1);
+        }
+    }
+    if(-1 == close(*rdOut)){
+        perror("close failed on output redirect file.\n");
+        exit(1);
+    }
 }
 
+void dup_in(int *rdIn){
+    if(dup2(*rdIn, 0) == -1){                //(stdin == 0)
+        perror("dup2 failed on input file.\n");
+        exit(1);
+    }
+    if(-1 == close(*rdIn)){                    //close fd -- don't need anymore
+        perror("close failed on input redirect file.\n");
+        exit(1);
+    }
+}
 
 int parse(char *argv1[], int *rdI, int *rdO, int *arg, int *stde, int *amp, int *script, int *hist, int *pip, char histaux[], char histfiles[]){
     int c;
@@ -395,8 +257,10 @@ int parse(char *argv1[], int *rdI, int *rdO, int *arg, int *stde, int *amp, int 
             metaFlag = -1;
         }
         if (s[0] == '>' || s[0] == '<' || s[0] == '&' || s[0] == '|'){    
-            if(metaFlag != -1)
+            if(metaFlag != -1){
                 perror("Invalid use of metachars: consecutive use.");            //consecutive metachar strings
+                return -3;
+            }
             else{                                    //process metachars and set the flag to 0, 1, 2 or 3 (corresponding to <, >, >&, &)
                 
                 if(s[0] == '|' && (strlen(s) == 1)){

@@ -8,10 +8,10 @@ Collin Harmon
 extern int pipeFlag;
 
 int getword(char *w){
-static int wordsize = 0, tokens = 0, numruns = 0, displacement = 0;
-int ch;
-static char aux[BUFFER];                //buffer array where tokenization happens
-int wasDelim =1, wasSlash = 0, metaCount = 0, index = 0;    //wasDelim and wasSlash act as boolean vars, metaCount tracks consecutive metachars
+    static int wordsize = 0, tokens = 0, numruns = 0, displacement = 0;
+    int ch;
+    static char aux[BUFFER];                //buffer array where tokenization happens---im assuming this is static so its contents stay intact upo  method calls to getword
+    int wasDelim =1, wasSlash = 0, metaCount = 0, index = 0;    //wasDelim and wasSlash act as boolean vars, metaCount tracks consecutive metachars
     if(!tokens){
         while ( (ch = getchar()) != EOF && index+1 < BUFFER) {        //reasoning for adding one to index is so that last spot can be reserved for null terminator if need be
             if(wordsize+1 == STORAGE){            //if max char limit for word reached then tokenize 
@@ -170,7 +170,7 @@ int wasDelim =1, wasSlash = 0, metaCount = 0, index = 0;    //wasDelim and wasSl
         numruns++;
         //ill need to check if line is terminated by eof then reset vars
         displacement += strlen(aux+displacement) + 1;
-        //if(w[0] == '\n' && numruns == tokens){            //adjustment as of 22 -- this line is last input to getword
+        //if(w[0] == '\n' && numruns == tokens)            //adjustment as of 22 -- this line is last input to getword
         if(w[0] == '\n'){            //adjustment as of 22 -- this line is last input to getword
             w[0] = '\0';
             tokens = 0;            //addjustment feb 22 --- reset all static vars
